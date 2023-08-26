@@ -1,0 +1,1930 @@
+//name        Scalper
+//version     1.0.0
+//author      rebelliume <rebelliume@gmail.com>
+//contact     rebelliume
+//copyright   rebelliume
+//license     MIT
+//released    2023/07/01
+
+//@version=5
+indicator(title = "Scalper", shorttitle = "SC", overlay = true, max_bars_back = 500,  max_lines_count = 500)
+
+MovingAverageOption				= input.bool(defval = true, title = "Enable MA", group = "Options - MA")
+BollingerBandsOption			= input.bool(defval = true, title = "Enable BB", group = "Options - MA")
+IchimokuCloudOption				= input.bool(defval = true, title = "Enable Cloud", group = "Options - MA")
+IchimokuCloudLinesOption		= input.bool(defval = false, title = "Enable Base", group = "Options - MA")
+VolumeColorOption				= input.bool(defval = true, title = "Enable Candle Volume", group = "Options - Volume")
+VolumeProfileOption				= input.bool(defval = false, title = "Enable Volume Profile", group = "Options - Volume")
+HullMovingAverageOption			= input.bool(defval = false, title = "Enable HMA", group = "Options - MA")
+HullMovingAverageSignalOption	= input.bool(defval = true, title = "Enable HMA Singal", group = "Options - Signals")
+SuperTrendOption				= input.bool(defval = true, title = "Enable ST Singal", group = "Options - Signals")
+OrderBlockSignalOption			= input.bool(defval = true, title = "Enable OB Signal", group = "Options - Signals")
+SmartCandleDetectionOption		= input.bool(defval = false, title = "Enable Smart Candle Detection", group = "Options - Candles")
+ClassicCandleDetectionOption	= input.bool(defval = false, title = "Enable Classic Candle Detection", group = "Options - Candles")
+NeutralCandleDetectionOption	= input.bool(defval = false, title = "Enable Neutral Candle", group = "Options - Candles")
+ZigZagAreaOption				= input.bool(defval = false, title = "Enable Zig Area", group = "Options - Others")
+ZigZagHighLowOption				= input.bool(defval = false, title = "Enable Zig H/L", group = "Options - Others")
+ZigZagLineOption				= input.bool(defval = false, title = "Enable Zig Line", group = "Options - Others")
+CMEMarketOption					= input.bool(defval = true, title = "Enable CME Market", group = "Options - Market")
+TimzezoneMarkOption				= input.bool(defval = false, title = "Enable Timezone Mark", group = "Options - Market")
+Table1Option					= input.bool(defval = true, title = "Enable Info Table", group = "Options - Data Table")
+Table2Option					= input.bool(defval = false, title = "Enable Extra Info Table", group = "Options - Data Table")
+Table3Option					= input.bool(defval = true, title = "Enable ATR Table", group = "Options - Data Table")
+Table4Option					= input.bool(defval = false, title = "Enable Dominance Table", group = "Options - Data Table")
+
+//Moving Averages
+MovingAverageLenght50		= input.int(defval = 50, minval = 10, maxval = 500, title = "Moving Average Length", group = "Data Values")
+MovingAverageLenght100		= input.int(defval = 100, minval = 10, maxval = 500, title = "Moving Average Length", group = "Data Values")
+MovingAverageLenght200		= input.int(defval = 200, minval = 10, maxval = 500, title = "Moving Average Length", group = "Data Values")
+
+MovingAverageOutput50		= ta.sma(close, MovingAverageLenght50)
+MovingAverageOutput100		= ta.sma(close, MovingAverageLenght100)
+MovingAverageOutput200		= ta.sma(close, MovingAverageLenght200)
+
+plot(MovingAverageOption ? MovingAverageOutput50 : na, color = color.rgb(255, 200, 0, 0), title ="MA 50", linewidth = 2, offset = 0)
+plot(MovingAverageOption ? MovingAverageOutput100 : na, color = color.rgb(255, 100, 0, 0), title ="MA 100", linewidth = 2, offset = 0)
+plot(MovingAverageOption ? MovingAverageOutput200 : na, color = color.rgb(255, 35, 0, 0), title ="MA 200", linewidth = 2, offset = 0)
+
+if(MovingAverageOption)
+	if(ta.crossover(MovingAverageOutput50, MovingAverageOutput100))
+		alert("CrossOver(MA50, MA100)", alert.freq_once_per_bar_close)
+	if(ta.crossunder(MovingAverageOutput50, MovingAverageOutput100))
+		alert("CrossUnder(MA50, MA100)", alert.freq_once_per_bar_close)
+
+	if(ta.crossover(MovingAverageOutput50, MovingAverageOutput200))
+		alert("CrossOver(MA50, MA200)", alert.freq_once_per_bar_close)
+	if(ta.crossunder(MovingAverageOutput50, MovingAverageOutput200))
+		alert("CrossUnder(MA50, MA200)", alert.freq_once_per_bar_close)
+
+	if(ta.crossover(MovingAverageOutput100, MovingAverageOutput200))
+		alert("CrossOver(MA100, MA200)", alert.freq_once_per_bar_close)
+	if(ta.crossunder(MovingAverageOutput100, MovingAverageOutput200))
+		alert("CrossUnder(MA100, MA200)", alert.freq_once_per_bar_close)
+
+//Bollinger Bands
+BollingerBandsLenght	= input.int(20, minval = 1, maxval = 50, title = "Bollinger Band Length", group = "Data Values")
+
+basisX					= ta.sma(close, BollingerBandsLenght)
+devX					= 2 * ta.stdev(close, BollingerBandsLenght)
+upperX					= basisX + devX
+lowerX					= basisX - devX
+
+plot(BollingerBandsOption ? basisX : na, color = color.rgb(150, 0, 0, 0), linewidth = 3, offset = 0, title = "Basis")
+BollingerOutput1	= plot(BollingerBandsOption ? upperX : na, color = color.rgb(0, 102, 102, 0), offset = 0, title = "Upper")
+BollingerOutput2	= plot(BollingerBandsOption ? lowerX : na, color = color.rgb(0, 102, 102, 0), offset = 0, title = "Lower")
+fill(BollingerOutput1, BollingerOutput2, color = color.rgb(0, 205, 205, 80), title = "Bollinger Band Background")
+
+//Ichimoku Cloud
+donChian(_lenght)	=> math.avg(ta.lowest(_lenght), ta.highest(_lenght))
+
+conversionLine		= donChian(9)
+baseLine			= donChian(26)
+leadLine1			= math.avg(conversionLine, baseLine)
+leadLine2			= donChian(52)
+
+plot(IchimokuCloudLinesOption ? conversionLine : na, color = color.rgb(0, 102, 102, 10), linewidth = 1, title = "Conversion")
+plot(IchimokuCloudLinesOption ? baseLine : na, color = color.rgb(255, 51, 204, 50), linewidth = 1, title = "Base")
+
+LeadLineOutput1		= plot(IchimokuCloudOption ? leadLine1 : na, offset = 26 - 1, color = color.rgb(176, 176, 176, 30), linewidth = 2, title = "Leading Span A")
+LeadLineOutput2		= plot(IchimokuCloudOption ? leadLine2 : na, offset = 26 - 1, color = color.rgb(122, 0, 205, 40), linewidth = 3, title = "Leading Span B")
+fill(LeadLineOutput1, LeadLineOutput2, color = leadLine1 > leadLine2 ? color.rgb(176, 176, 176, 80) : color.rgb(122, 0, 205, 88), title = "Ichimoku Cloud Background")
+
+if(IchimokuCloudOption)
+	if(ta.crossover(conversionLine, baseLine))
+		alert("CrossOver(ConversionLine, BaseLine)", alert.freq_once_per_bar_close)
+	if(ta.crossunder(baseLine, conversionLine))
+		alert("CrossUnder(ConversionLine, BaseLine)", alert.freq_once_per_bar_close)
+
+	if(ta.crossover(leadLine1, leadLine2))
+		alert("CrossOver(LeadLine)", alert.freq_once_per_bar_close)
+	if(ta.crossunder(leadLine2, leadLine1))
+		alert("CrossUnder(LeadLine)", alert.freq_once_per_bar_close)
+
+//Candle Volume
+volumeLenght		= input.int(defval = 24, minval = 1, title = "Volume Average Length", group = "Data Values")
+volumeAverage		= ta.sma(volume, volumeLenght)
+
+VolumeDown1			= volume > volumeAverage * 1.5 and close < open
+VolumeDown2			= volume >= volumeAverage * 0.5 and volume <= volumeAverage * 1.5 and close < open
+VolumeDown3			= volume < volumeAverage * 0.5 and close < open
+VolumeUp1			= volume > volumeAverage * 1.5 and close > open
+VolumeUp2			= volume >= volumeAverage * 0.5 and volume <= volumeAverage * 1.5 and close > open
+VolumeUp3			= volume < volumeAverage * 0.5 and close > open
+
+VolumeColorUp1		= color.rgb(18, 75, 70, 0)
+VolumeColorUp2		= color.rgb(28, 116, 108, 0)
+VolumeColorUp3		= color.rgb(38, 166, 158, 0)
+VolumeColorDown1	= color.rgb(120, 25, 21, 0)
+VolumeColorDown2	= color.rgb(160, 26, 28, 0)
+VolumeColorDown3	= color.rgb(200, 36, 38, 0)
+
+VolumeBarColor		= VolumeDown1 ? VolumeColorDown1 : VolumeDown2 ? VolumeColorDown2 : VolumeDown3 ? VolumeColorDown3 : VolumeUp1 ? VolumeColorUp3 : VolumeUp2 ? VolumeColorUp2 : VolumeUp3 ? VolumeColorUp3 : na
+
+barcolor(VolumeColorOption ? VolumeBarColor : na)
+
+//Volume Profile
+volumeProBarOffset				= input.int(defval = 24, minval = 1, maxval = 100, title = "Volume Profile Offset", group = "Data Values")
+
+volumeProfileLookBack			= 200
+volumeProfileBarMult			= 22
+
+float volumeProfileVMax			= 0.0
+int volumeProfileVMaxId			= 0
+int volumeProfileNBars			= 50
+var int volumeProfileFirst		= time
+
+volumeProfileP					= array.new_float((volumeProfileNBars + 1), 0.0)
+volumeProfileV					= array.new_float(volumeProfileNBars, 0.0)
+volumeProfileD					= array.new_float(volumeProfileNBars, 0.0)
+volumeProfileW					= array.new_int(volumeProfileNBars, 0)
+
+float volumeProfileHighestHigh	= ta.highest(high, volumeProfileLookBack)
+float volumeProfileLowestLow	= ta.lowest(low, volumeProfileLookBack)
+
+if barstate.islast
+	float volumeProfileHighLow = (volumeProfileHighestHigh - volumeProfileLowestLow) / volumeProfileNBars
+    for j = 1 to (volumeProfileNBars + 1)
+        array.set(volumeProfileP, (j-1), (volumeProfileLowestLow + volumeProfileHighLow * j))
+	for i = 0 to (volumeProfileLookBack - 1)
+		int Dc = 0
+		array.fill(volumeProfileD, 0.0)
+		for j = 0 to (volumeProfileNBars - 1)
+			float Pj = array.get(volumeProfileP, j)
+			if low[i] < Pj and high[i] > Pj
+				float Dj = array.get(volumeProfileD, j)
+				float dDj = Dj + nz(volume[i])
+				array.set(volumeProfileD, j, dDj)
+				Dc := Dc + 1
+		for j = 0 to (volumeProfileNBars - 1)
+			float Vj = array.get(volumeProfileV, j)
+			float Dj = array.get(volumeProfileD, j)
+			float dVj = Vj + ((Dc > 0) ? (Dj / Dc) : 0.0)
+			array.set(volumeProfileV, j, dVj)
+	volumeProfileVMax := array.max(volumeProfileV)
+    volumeProfileVMaxId := array.indexof(volumeProfileV, volumeProfileVMax)
+    for j = 0 to (volumeProfileNBars - 1)
+        float Vj = array.get(volumeProfileV, j)
+        int Aj = math.round(volumeProfileBarMult * Vj / volumeProfileVMax)
+        array.set(volumeProfileW, j, Aj)
+        
+if barstate.isfirst
+    volumeProfileFirst		:= time
+
+volumeProfileChange			= ta.change(time)
+volumeProfileX2Location		= timenow + math.round(volumeProfileChange * volumeProBarOffset)
+
+if barstate.islast and VolumeProfileOption
+	for i = 0 to (volumeProfileNBars - 1) by 1
+		volumeProfileYLocation = array.get(volumeProfileP, i)
+		volumeProfileX1Location = ((volumeProfileVMaxId == i) and false) ? math.max(time[volumeProfileLookBack], volumeProfileFirst) : (timenow + math.round(volumeProfileChange * (volumeProBarOffset - array.get(volumeProfileW, i))))
+		line.new(x1 = volumeProfileX1Location, y1 = volumeProfileYLocation, x2 = volumeProfileX2Location, y2 = volumeProfileYLocation, xloc = xloc.bar_time, extend = extend.none, color = color.rgb(255, 255, 255, 35), style  = line.style_solid, width  = 2)		
+
+//Hull Moving Average
+HullMovingAverageLenght	= input.int(defval = 11, minval = 2, title = "Hull Moving Average Line Length", group = "Data Values")
+HullMovingAverage		= ta.wma(2 * ta.wma(close, HullMovingAverageLenght / 2) - ta.wma(close, HullMovingAverageLenght), math.floor(math.sqrt(HullMovingAverageLenght)))
+
+plot(HullMovingAverageOption ? HullMovingAverage : na, color = color.rgb(50, 100, 255, 0), linewidth = 2, offset = 0, title="HMA")
+
+//Hull Moving Average Signal
+HullMovingAverageSignalLenght		= input.int(defval = 18, minval = 2, title = "Hull Moving Average Signal Length", group = "Data Values")
+
+HullMovingAverage(_source, _lenght)	=> ta.wma((2 * ta.wma(_source, _lenght / 2)) - ta.wma(_source, _lenght), math.round(math.sqrt(_lenght)))
+HullMovingAverage3()				=> Result = HullMovingAverageSignalLenght / 2, ta.wma(ta.wma(close, Result / 3) * 3 - ta.wma(close, Result / 2) - ta.wma(close, Result), Result)
+
+SimpleMoving(_source, _lenght)		=>
+    Result		= 0.0
+    Simple		= _source - nz(Result[1], _source)
+    Smooth		= nz(Result[1], _source) + Simple * math.sqrt(_lenght * 2)
+    Velocity	= 0.0
+    Velocity	:= nz(Velocity[1], 0) + (_lenght * Simple)
+    Result		:= Smooth + Velocity
+
+HullMovingAverageValueX				= SimpleMoving(HullMovingAverage(hl2, HullMovingAverageSignalLenght), 0.7)
+HullMovingAverageValueY				= SimpleMoving(HullMovingAverage3(), 0.7)
+HullMovingAverageCrossOver			= HullMovingAverageValueX > HullMovingAverageValueY and HullMovingAverageValueX[1] < HullMovingAverageValueY[1]
+HullMovingAverageCrossUnder			= HullMovingAverageValueY > HullMovingAverageValueX and HullMovingAverageValueY[1] < HullMovingAverageValueX[1]
+
+plotshape(HullMovingAverageSignalOption and HullMovingAverageCrossOver ? HullMovingAverageValueX : na, location = location.belowbar, style = shape.circle, color = color.rgb(15, 255, 130, 0), size = size.tiny, text = "HMA", title = "Bullish HMA", textcolor = color.rgb(15, 255, 130, 0), offset = -1)
+plotshape(HullMovingAverageSignalOption and HullMovingAverageCrossUnder ? HullMovingAverageValueX : na, location = location.abovebar, style = shape.circle, color = color.rgb(255, 0, 0, 0), size = size.tiny, text = "HMA", title = "Bearish HMA", textcolor = color.rgb(255, 0, 0, 0), offset = -1)
+
+if(HullMovingAverageSignalOption)
+    if(HullMovingAverageCrossOver)
+        alert("CrossOver(Hull)", alert.freq_once_per_bar_close)
+    if(HullMovingAverageCrossUnder)
+        alert("CrossUnder(Hull)", alert.freq_once_per_bar_close)
+
+//Super Trend Signal
+superTrendLenght		= input.int(defval = 18, minval = 1, maxval = 500, title = "SuperTrend Length", group = "Data Values")
+
+superTrendUp1			= hl2 - (2 * (ta.sma(ta.tr, superTrendLenght)))
+superTrendUp2			= nz(superTrendUp1[1], superTrendUp1)
+superTrendUp1			:= close[1] > superTrendUp2 ? math.max(superTrendUp1, superTrendUp2) : superTrendUp1
+superTrendDn1			= hl2 + (2 * (ta.sma(ta.tr, superTrendLenght)))
+superTrendDn2			= nz(superTrendDn1[1], superTrendDn1)
+superTrendDn1			:= close[1] < superTrendDn2 ? math.min(superTrendDn1, superTrendDn2) : superTrendDn1
+superTrendStatus		= 1
+superTrendStatus		:= nz(superTrendStatus[1], superTrendStatus)
+superTrendStatus		:= superTrendStatus == -1 and close > superTrendDn2 ? 1 : superTrendStatus == 1 and close < superTrendUp2 ? -1 : superTrendStatus
+superTrendbuySignal		= superTrendStatus == 1 and superTrendStatus[1] == -1
+superTrendsellSignal	= superTrendStatus == -1 and superTrendStatus[1] == 1
+
+plotshape(SuperTrendOption and superTrendbuySignal ? superTrendUp1 : na, location = location.belowbar, style = shape.square, color = color.rgb(15, 255, 130, 0), size = size.tiny, text = "ST", title = "Bullish Super Trend", textcolor = color.rgb(15, 255, 130, 0), offset = 0)
+plotshape(SuperTrendOption and superTrendsellSignal ? superTrendDn1 : na, location = location.abovebar, style = shape.square, color = color.rgb(255, 0, 0, 0), size = size.tiny, text = "ST", title = "Bearish Super Trend", textcolor = color.rgb(255, 0, 0, 0), offset = 0)
+
+if(SuperTrendOption)
+    if(superTrendbuySignal)
+        alert("CrossOver(SuperTrend)", alert.freq_once_per_bar_close)
+    if(superTrendsellSignal)
+        alert("CrossUnder(SuperTrend)", alert.freq_once_per_bar_close)
+
+//Order Block Signal
+OrderBlockPeriodLenght	= input.int(defval = 5, minval = 3, step = 6, title = "Periods to Identify OB", group = "Data Values")
+OrderBlockPeriod		= OrderBlockPeriodLenght + 1
+absMove					= ((math.abs(close[OrderBlockPeriod] - close[1]))/close[OrderBlockPeriod]) * 100
+relMove					= absMove >= 0.1
+
+BullishOrderBlock		= close[OrderBlockPeriod] < open[OrderBlockPeriod]
+int UpCandles			= 0
+for i = 1 to OrderBlockPeriodLenght
+    UpCandles			:= UpCandles + (close[i] > open[i]? 1 : 0)
+
+OrderBlockBull			= BullishOrderBlock and (UpCandles == (OrderBlockPeriodLenght)) and relMove
+
+BearishOrderBlock		= close[OrderBlockPeriod] > open[OrderBlockPeriod]
+int DownCandles			= 0
+for i = 1 to OrderBlockPeriodLenght
+    DownCandles			:= DownCandles + (close[i] < open[i]? 1 : 0)
+
+OrderBlockBear			= BearishOrderBlock and (DownCandles == (OrderBlockPeriodLenght)) and relMove
+
+plotshape(OrderBlockSignalOption ? OrderBlockBull : na, title="OB", style = shape.diamond, color = color.rgb(15, 255, 130, 0), textcolor = color.rgb(15, 255, 130, 0), size = size.tiny, location = location.belowbar, offset = -OrderBlockPeriod, text = "OB")
+plotshape(OrderBlockSignalOption ? OrderBlockBear : na, title="OB", style = shape.diamond, color = color.rgb(255, 0, 0, 0), textcolor = color.rgb(255, 0, 0, 0),  size = size.tiny, location = location.abovebar, offset = -OrderBlockPeriod, text = "OB")
+
+if(OrderBlockSignalOption)
+    if(OrderBlockBull)
+        alert("CrossOver(OrderBlock)", alert.freq_once_per_bar_close)
+    if(OrderBlockBear)
+        alert("CrossUnder(OrderBlock)", alert.freq_once_per_bar_close)
+
+//Smart Candle
+DownTrend					= true
+UpTrend						= true
+priceAvg					= ta.sma(close, 50)
+DownTrend					:= close < priceAvg
+UpTrend						:= close > priceAvg
+Factor						= 2.0
+BodyHi						= math.max(close, open)
+BodyLo						= math.min(close, open)
+Body						= BodyHi - BodyLo
+BodyAvg						= ta.ema(Body, 14)
+SmallBody					= Body < BodyAvg
+LongBody					= Body > BodyAvg
+UpShadow					= high - BodyHi
+DnShadow					= BodyLo - low
+HasUpShadow					= UpShadow > 5.0 / 100 * Body
+HasDnShadow					= DnShadow > 5.0 / 100 * Body
+GreenBody					= open < close
+RedBody						= open > close
+Range						= high - low
+IsInsideBar					= BodyHi[1] > BodyHi and BodyLo[1] < BodyLo
+BodyMiddle					= Body / 2 + BodyLo
+ShadowEquals				= UpShadow == DnShadow or (math.abs(UpShadow - DnShadow) / DnShadow * 100) < 100 and (math.abs(DnShadow - UpShadow) / UpShadow * 100) < 100
+IsDojiBody					= Range > 0 and Body <= Range * 5.0 / 100
+Doji						= IsDojiBody and ShadowEquals
+DragonflyDoji				= IsDojiBody and UpShadow <= Body
+GravestoneDojiOne			= IsDojiBody and DnShadow <= Body
+IsSpinningTopWhite			= DnShadow >= Range / 100 * 34 and UpShadow >= Range / 100 * 34 and not IsDojiBody
+IsSpinningTop				= DnShadow >= Range / 100 * 34 and UpShadow >= Range / 100 * 34 and not IsDojiBody
+WSld_HaveNotUpShadow		= Range * 5 / 100 > UpShadow
+ThreeWhiteSoldiersBullish	= false
+BCrw_HaveNotDnShadow		= Range * 5 / 100 > DnShadow
+ThreeBlackCrowsBearish		= false
+DojisBullish				= Doji[2] and Doji[1] and Doji
+BodyGapUpBullish			= BodyHi[1] < BodyLo
+BodyGapDnBullish			= BodyLo[1] > BodyHi
+Dojis 						= Doji[2] and Doji[1] and Doji
+BodyGapUp					= BodyHi[1] < BodyLo
+BodyGapDn					= BodyLo[1] > BodyHi
+Marubozu					= LongBody and UpShadow <= int(5) / 100 * Body and DnShadow <= int(5) / 100 * Body
+MarubozuWhiteBullishKicking	= Marubozu and GreenBody
+MarubozuBlackBullish		= Marubozu and RedBody
+MarubozuBearishKicking		= LongBody and UpShadow <= int(5) / 100 * Body and DnShadow <= int(5) / 100 * Body
+MarubozuWhiteBearish		= MarubozuBearishKicking and GreenBody
+MarubozuBlackBearishKicking	= MarubozuBearishKicking and RedBody
+patternLabelPosLow			= low - (ta.atr(30) * 0.5)
+patternLabelPosHigh			= high + (ta.atr(30) * 0.5)
+
+ColorBullish				= color.rgb(15, 255, 130, 60)
+ColorBearish				= color.rgb(255, 65, 15, 60)
+ColorNeutral				= color.rgb(130, 130, 130, 60)
+
+if(GreenBody and LongBody and UpShadow <= int(5) / 100 * Body and DnShadow <= int(5) / 100 * Body and GreenBody and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="M", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Marubozu", size = size.tiny)
+	alert("Candle M+", alert.freq_once_per_bar_close)
+
+if(RedBody and LongBody and UpShadow <= int(5) / 100 * Body and DnShadow <= int(5) / 100 * Body and RedBody and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="M", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Marubozu", size = size.tiny)
+	alert("Candle M-", alert.freq_once_per_bar_close)
+
+if(DownTrend and RedBody[1] and LongBody[1] and GreenBody and open < close[1] and SmallBody and Range!=0 and math.abs(close-low[1]) <= BodyAvg * 0.05 and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="BIN", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish In Neck", size = size.tiny)
+	alert("Candle BIN-", alert.freq_once_per_bar_close)
+
+if(UpTrend[1] and (Range!= 0 and Range[1]!= 0) and low > high[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="RW", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Rising Window", size = size.tiny)
+	alert("Candle RW+", alert.freq_once_per_bar_close)
+
+if(DownTrend[1] and (Range!= 0 and Range[1]!= 0) and high < low[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="FW", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Falling Window", size = size.tiny)
+	alert("Candle RW-", alert.freq_once_per_bar_close)
+
+if(DownTrend[4] and (LongBody[4] and RedBody[4]) and (SmallBody[3] and GreenBody[3] and open[3]>low[4] and close[3]<high[4]) and (SmallBody[2] and GreenBody[2] and open[2]>low[4] and close[2]<high[4]) and (SmallBody[1] and GreenBody[1] and open[1]>low[4] and close[1]<high[4]) and (LongBody and RedBody and close<close[4]) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="FTM", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Falling Three Methods", size = size.tiny)
+	alert("Candle FTM-", alert.freq_once_per_bar_close)
+
+if(UpTrend[4] and (LongBody[4] and GreenBody[4]) and (SmallBody[3] and RedBody[3] and open[3]<high[4] and close[3]>low[4]) and (SmallBody[2] and RedBody[2] and open[2]<high[4] and close[2]>low[4]) and (SmallBody[1] and RedBody[1] and open[1]<high[4] and close[1]>low[4]) and (LongBody and GreenBody and close>close[4]) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="RTM", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Rising Three Methods", size = size.tiny)
+	alert("Candle RTM+", alert.freq_once_per_bar_close)
+
+if(UpTrend[1] and (not IsDojiBody or (HasUpShadow and HasDnShadow)) and math.abs(high-high[1]) <= BodyAvg*0.05 and GreenBody[1] and RedBody and LongBody[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="TT", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Tweezer Top", size = size.tiny)
+	alert("Candle TT-", alert.freq_once_per_bar_close)
+
+if(UpTrend[1] and (not IsDojiBody or (HasUpShadow and HasDnShadow)) and math.abs(low-low[1]) <= BodyAvg*0.05 and RedBody[1] and GreenBody and LongBody[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="TT", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Tweezer Bottom", size = size.tiny)
+	alert("Candle TT+", alert.freq_once_per_bar_close)
+
+if((UpTrend[1] and GreenBody[1] and LongBody[1]) and (RedBody and open >= high[1] and  close < BodyMiddle[1] and close > open[1]) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="DCC", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Dark Cloud Cover", size = size.tiny)
+	alert("Candle DCC-", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and SmallBody[1] and DownTrend and RedBody[2] and BodyHi[1] < BodyLo[2] and RedBody[1] and GreenBody and BodyHi <= BodyLo[2] and BodyHi >= BodyHi[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="DTG", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Downside Tasuki Gap", size = size.tiny)
+	alert("Candle DTG-", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and SmallBody[1] and UpTrend and GreenBody[2] and BodyLo[1] > BodyHi[2] and GreenBody[1] and RedBody and BodyLo >= BodyHi[2] and BodyLo <= BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="UTG", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Upside Tasuki Gap", size = size.tiny)
+	alert("Candle UTG+", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and IsDojiBody[1] and LongBody and UpTrend and GreenBody[2] and BodyLo[1] > BodyHi[2] and RedBody and BodyLo <= BodyMiddle[2] and BodyLo > BodyLo[2] and BodyLo[1] > BodyHi and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="EDS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Evening Doji Star", size = size.tiny)
+	alert("Candle EDS-", alert.freq_once_per_bar_close)
+
+if(UpTrend and GreenBody[1] and LongBody[1] and IsDojiBody and BodyLo > BodyHi[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="DS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Doji Star", size = size.tiny)
+	alert("Candle DS-", alert.freq_once_per_bar_close)
+
+if(DownTrend and RedBody[1] and LongBody[1] and IsDojiBody and BodyHi < BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="DS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Doji Star", size = size.tiny)
+	alert("Candle DS+", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and IsDojiBody[1] and LongBody and DownTrend and RedBody[2] and BodyHi[1] < BodyLo[2] and GreenBody and BodyHi >= BodyMiddle[2] and BodyHi < BodyHi[2] and BodyHi[1] < BodyLo and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="MDS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Morning Doji Star", size = size.tiny)
+	alert("Candle MDS+", alert.freq_once_per_bar_close)
+
+if((DownTrend[1] and RedBody[1] and LongBody[1]) and (GreenBody and open <= low[1] and close > BodyMiddle[1] and close < open[1]) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="P", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Piercing", size = size.tiny)
+	alert("Candle P+", alert.freq_once_per_bar_close)
+
+if(SmallBody and Body > 0 and BodyLo > hl2 and DnShadow >= Factor * Body and not HasUpShadow and SmartCandleDetectionOption)
+    if(DownTrend)
+		label.new(bar_index, patternLabelPosLow, text="H", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Hammer", size = size.tiny)
+		alert("Candle H+", alert.freq_once_per_bar_close)
+
+if(SmallBody and Body > 0 and BodyLo > hl2 and DnShadow >= Factor * Body and not HasUpShadow and SmartCandleDetectionOption)
+	if(UpTrend)
+		label.new(bar_index, patternLabelPosHigh, text="HM", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Hanging Man", size = size.tiny)
+		alert("Candle HM-", alert.freq_once_per_bar_close)
+
+if(SmallBody and Body > 0 and BodyHi < hl2 and UpShadow >= Factor * Body and not HasDnShadow and SmartCandleDetectionOption)
+	if(UpTrend)
+		label.new(bar_index, patternLabelPosHigh, text="SS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Shooting Star", size = size.tiny)
+		alert("Candle SS-", alert.freq_once_per_bar_close)
+
+if(SmallBody and Body > 0 and BodyHi < hl2 and UpShadow >= Factor * Body and not HasDnShadow and SmartCandleDetectionOption)
+    if(DownTrend)
+		label.new(bar_index, patternLabelPosLow, text="IH", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Inverted Hammer", size = size.tiny)
+		alert("Candle IH-", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and SmallBody[1] and LongBody and SmartCandleDetectionOption)
+    if(DownTrend and RedBody[2] and BodyHi[1] < BodyLo[2] and GreenBody and BodyHi >= BodyMiddle[2] and BodyHi < BodyHi[2] and BodyHi[1] < BodyLo)
+		label.new(bar_index, patternLabelPosLow, text="MS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Morning Star", size = size.tiny)
+		alert("Candle MS+", alert.freq_once_per_bar_close)
+
+if(LongBody[2] and SmallBody[1] and LongBody) and SmartCandleDetectionOption
+    if(UpTrend and GreenBody[2] and BodyLo[1] > BodyHi[2] and RedBody and BodyLo <= BodyMiddle[2] and BodyLo > BodyLo[2] and BodyLo[1] > BodyHi)
+		label.new(bar_index, patternLabelPosHigh, text="ES", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Evening Star", size = size.tiny)
+		alert("Candle ES-", alert.freq_once_per_bar_close)
+
+if(Doji and not DragonflyDoji and not GravestoneDojiOne and SmartCandleDetectionOption)
+	alert("Candle Doji", alert.freq_once_per_bar_close)
+
+if(IsDojiBody and DnShadow <= Body and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="GD", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Gravestone Doji", size = size.tiny)
+	alert("Candle GD-", alert.freq_once_per_bar_close)
+
+if(IsDojiBody and UpShadow <= Body and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="GFD", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Dragonfly Doji", size = size.tiny)
+	alert("Candle GFD+", alert.freq_once_per_bar_close)
+
+if(LongBody[1] and RedBody[1] and DownTrend[1] and IsDojiBody and high <= BodyHi[1] and low >= BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="HC", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Harami Cross", size = size.tiny)
+	alert("Candle HC+", alert.freq_once_per_bar_close)
+
+if(LongBody[1] and GreenBody[1] and UpTrend[1] and IsDojiBody and high <= BodyHi[1] and low >= BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="HC", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Harami Cross", size = size.tiny)
+	alert("Candle HC-", alert.freq_once_per_bar_close)
+
+if(LongBody[1] and RedBody[1] and DownTrend[1] and GreenBody and SmallBody and high <= BodyHi[1] and low >= BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="H", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Harami"), size = size.tiny
+	alert("Candle H+", alert.freq_once_per_bar_close)
+
+if(LongBody[1] and GreenBody[1] and UpTrend[1] and RedBody and SmallBody and high <= BodyHi[1] and low >= BodyLo[1] and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="H", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Harami", size = size.tiny)
+	alert("Candle H-", alert.freq_once_per_bar_close)
+
+if(DnShadow > Range/100 * 75 and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="LLS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Long Lower Shadow", size = size.tiny)
+	alert("Candle LLS+", alert.freq_once_per_bar_close)
+
+if(UpShadow > Range/100 * 75 and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="LUS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Long Upper Shadow", size = size.tiny)
+	alert("Candle LUS-", alert.freq_once_per_bar_close)
+
+if(IsSpinningTopWhite and GreenBody and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="LLS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Spinning Top Green", size = size.tiny)
+	alert("Candle STG+", alert.freq_once_per_bar_close)
+   
+if(IsSpinningTop and RedBody and SmartCandleDetectionOption)	
+	label.new(bar_index, patternLabelPosHigh, text="STR", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Spinning Top Red", size = size.tiny)
+	alert("Candle STR-", alert.freq_once_per_bar_close)
+
+if(LongBody and LongBody[1] and LongBody[2] and SmartCandleDetectionOption)
+    if(GreenBody and GreenBody[1] and GreenBody[2])
+        ThreeWhiteSoldiersBullish := close > close[1] and close[1] > close[2] and open < close[1] and open > open[1] and open[1] < close[2] and open[1] > open[2] and WSld_HaveNotUpShadow and WSld_HaveNotUpShadow[1] and WSld_HaveNotUpShadow[2]
+if(ThreeWhiteSoldiersBullish and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="TWS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Three White Soldiers", size = size.tiny)
+	alert("Pattern TWS+", alert.freq_once_per_bar_close)
+
+if(LongBody and LongBody[1] and LongBody[2] and SmartCandleDetectionOption)
+    if(RedBody and RedBody[1] and RedBody[2])
+        ThreeBlackCrowsBearish := close < close[1] and close[1] < close[2] and open > close[1] and open < open[1] and open[1] > close[2] and open[1] < open[2] and BCrw_HaveNotDnShadow and BCrw_HaveNotDnShadow[1] and BCrw_HaveNotDnShadow[2]
+if(ThreeBlackCrowsBearish and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="TBC", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Three Black Crows", size = size.tiny)
+	alert("Pattern TBC-", alert.freq_once_per_bar_close)
+
+if(DownTrend and GreenBody and LongBody and RedBody[1] and SmallBody[1] and close >= open[1] and open <= close[1] and ( close > open[1] or open < close[1] ) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="E", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Engulfing", size = size.tiny)
+	alert("Candle E+", alert.freq_once_per_bar_close)
+
+if(UpTrend and RedBody and LongBody and GreenBody[1] and SmallBody[1] and close <= open[1] and open >= close[1] and ( close < open[1] or open > close[1] ) and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="E", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Engulfing", size = size.tiny)
+	alert("Candle E-", alert.freq_once_per_bar_close)
+
+if(DownTrend[2] and RedBody[2] and IsDojiBody[1] and low[2] > high[1] and GreenBody and high[1] < low and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="AB", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Abandoned Baby", size = size.tiny)
+	alert("Candle AB+", alert.freq_once_per_bar_close)
+
+if(UpTrend[2] and GreenBody[2] and IsDojiBody[1] and high[2] < low[1] and RedBody and low[1] > high and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="AB", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Abandoned Baby", size = size.tiny)
+	alert("Candle AB-", alert.freq_once_per_bar_close)
+
+if(DojisBullish and DownTrend[2] and BodyGapDnBullish[1] and BodyGapUpBullish and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="TS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Tri Star", size = size.tiny)
+	alert("Candle TS+", alert.freq_once_per_bar_close)
+
+if(Dojis and UpTrend[2] and BodyGapUp[1] and BodyGapDn and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="TS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Tri Star", size = size.tiny)
+	alert("Candle TS-", alert.freq_once_per_bar_close)
+
+if(MarubozuBlackBullish[1] and MarubozuWhiteBullishKicking and high[1] < low and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text="K", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Kicking", size = size.tiny)
+	alert("Candle K+", alert.freq_once_per_bar_close)
+
+if(MarubozuWhiteBearish[1] and MarubozuBlackBearishKicking and low[1] > high and SmartCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text="K", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Kicking", size = size.tiny)
+	alert("Candle K-", alert.freq_once_per_bar_close)
+
+//Classic Candle
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close < open and math.abs(close - open) / (high - low) >=  0.7 and open >=  close[1] and close > open[1] and close < ((open[1] + close[1]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "DCC", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "DarkCloudCover", size = size.tiny)
+	alert("Candle DCC - ", alert.freq_once_per_bar_close)
+
+if(math.abs(close - open) / (high - low) < 0.1 and (high - math.max(close,open)) > (3 * math.abs(close - open)) and (math.min(close,open) - low) > (3 * math.abs(close - open)) and ClassicCandleDetectionOption)
+	label.new(NeutralCandleDetectionOption ? bar_index : na, patternLabelPosLow, text = "Doji", style = label.style_label_up, color = ColorNeutral, textcolor = color.white, tooltip = "", size = size.tiny)
+	alert("Candle Doji", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and math.abs(close - open) / (high - low) < 0.1 and close[1] < close and close[1] < open and (high - math.max(close,open)) > (3 * math.abs(close - open)) and (math.min(close,open) - low) > (3 * math.abs(close - open)) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "DS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Doji Star", size = size.tiny)
+	alert("Candle DS - ", alert.freq_once_per_bar_close)
+
+//if(math.abs(close - open) / (high - low) < 0.1 and (math.min(close,open) - low) > (3 * math.abs(close - open)) and (high - math.max(close,open)) < math.abs(close - open) and ClassicCandleDetectionOption)
+//	label.new(bar_index, patternLabelPosLow, text = "DD", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Dragonfly Doji", size = size.tiny)
+//	alert("Candle DD + ", alert.freq_once_per_bar_close)
+
+if(close[2] > open[2] and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.7 and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close < open and math.abs(close - open) / (high - low) >=  0.7 and close[2] < close[1] and close[2] < open[1] and close[1] > open and open[1] > open and close < close[2] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "ES", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Evening Star", size = size.tiny)
+	alert("Candle ES - ", alert.freq_once_per_bar_close)
+
+if(close[2] > open[2] and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.7 and math.abs(close[1] - open[1]) / (high[1] - low[1]) < 0.1 and close < open and math.abs(close - open) / (high - low) >=  0.7 and close[2] < close[1] and close[2] < open[1] and close[1] > open and open[1] > open and close < close[2] and (high[1] - math.max(close[1],open[1])) > (3 * math.abs(close[1] - open[1])) and (math.min(close[1],open[1]) - low[1]) > (3 * math.abs(close[1] - open[1])) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "ESD", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Evening Star Doji", size = size.tiny)
+	alert("Candle ESD - ", alert.freq_once_per_bar_close)
+
+if(math.abs(close - open) / (high - low) < 0.1 and (high - math.max(close,open)) > (3 * math.abs(close - open)) and (math.min(close,open) - low) <=  math.abs(close - open) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "GS", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Gravestone Doji", size = size.tiny)
+	alert("Candle GS - ", alert.freq_once_per_bar_close)
+
+if(close < open and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and (math.min(close,open) - low) >=  (2 * math.abs(close - open)) and (high - math.max(close,open)) > (0.25 * math.abs(close - open)) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "HMR", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Hanging Man Red", size = size.tiny)
+	alert("Candle HMR - ", alert.freq_once_per_bar_close)
+
+if(close > open and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and (math.min(close,open) - low) >=  (2 * math.abs(close - open)) and (high - math.max(close,open)) > (0.25 * math.abs(close - open)) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "HMG", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Hanging Man Green", size = size.tiny)
+	alert("Candle HMG - ", alert.freq_once_per_bar_close)
+
+if(close[2] < open[2] and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.7 and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close > open and math.abs(close - open) / (high - low) >=  0.7 and close[2] > close[1] and close[2] > open[1] and close[1] < open and open[1] < open and close > close[2] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "MS", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Morning Star", size = size.tiny)
+	alert("Candle MS + ", alert.freq_once_per_bar_close)
+
+if(close[2] < open[2] and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.7 and math.abs(close[1] - open[1]) / (high[1] - low[1]) < 0.1 and close > open and math.abs(close - open) / (high - low) >=  0.7 and close[2] > close[1] and close[2] > open[1] and close[1] < open and open[1] < open and close > close[2] and (high[1] - math.max(close[1],open[1])) > (3 * math.abs(close[1] - open[1])) and (math.min(close[1],open[1]) - low[1]) > (3 * math.abs(close[1] - open[1])) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "MSD", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Morning Star Doji", size = size.tiny)
+	alert("Candle MSD + ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close > open and math.abs(close - open) / (high - low) >=  0.7 and open <=  close[1] and close < open[1] and close < ((open[1] + close[1]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "PP", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "PiercingPattern", size = size.tiny)
+	alert("Candle PP + ", alert.freq_once_per_bar_close)
+
+//if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and close[1] > close and close[1] > open and ClassicCandleDetectionOption)
+//	label.new(bar_index, patternLabelPosLow, text = "RD", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Raindrop", size = size.tiny)
+//	alert("Candle RD + ", alert.freq_once_per_bar_close)
+
+//if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and math.abs(close - open) / (high - low) < 0.1 and close[1] > close and close[1] > open and (high - math.max(close,open)) > (3 * math.abs(close - open)) and (math.min(close,open) - low) > (3 * math.abs(close - open)) and ClassicCandleDetectionOption)
+//	label.new(bar_index, patternLabelPosLow, text = "RDJ", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Raindrop Doji", size = size.tiny)
+//	alert("Candle RDJ + ", alert.freq_once_per_bar_close)
+
+if(close < open and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and (high - math.max(close,open)) >=  (2 * math.abs(close - open)) and (math.min(close,open) - low) <=  (0.25 * math.abs(close - open)) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "IH", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "InvertedHammer", size = size.tiny)
+	alert("Candle IH + ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and close[1] < close and close[1] < open and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "S", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Star", size = size.tiny)
+	alert("Candle S - ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close < open and math.abs(close - open) / (high - low) >=  0.7 and open >=  close[1] and close < close[1] and close >=  ((open[1] + close[1]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "BT", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Thrusting", size = size.tiny)
+	alert("Candle BT - ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close > open and math.abs(close - open) / (high - low) >=  0.7 and open <=  close[1] and close > close[1] and close <=  ((open[1] + close[1]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "BTP", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Thrusting Pattern", size = size.tiny)
+	alert("Candle BTP + ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close < open and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and math.abs(low / low[1] - 1) < 0.05 and math.abs(close - open) < 2 * (math.min(close,open) - low) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "TB", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Tweezers Bottom", size = size.tiny)
+	alert("Candle TB + ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and close > open and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and math.abs(high / high[1] - 1) < 0.05 and math.abs(close[1] - open[1]) < 2 * (high[1] - math.max(close[1],open[1])) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "TT", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Tweezers Top", size = size.tiny)
+	alert("Candle TT - ", alert.freq_once_per_bar_close)
+
+if(close[3] < open[3] and math.abs(close[3] - open[3]) / (high[3] - low[3]) >=  0.7 and close[2] > open[2] and 0.3 > math.abs(close[2] - open[2]) / (high[2] - low[2]) and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.1 and close[1] > open[1] and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close > open and math.abs(close - open) / (high - low) >=  0.7 and close[2] > close[1] and close[1] > close[3] and open[2] < close[3] and open[1] < close[3] and close > ((open[3] + close[3]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "TB", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Tower Bottom", size = size.tiny)
+	alert("Candle TB + ", alert.freq_once_per_bar_close)
+
+if(close[3] > open[3] and math.abs(close[3] - open[3]) / (high[3] - low[3]) >=  0.7 and close[2] < open[2] and 0.3 > math.abs(close[2] - open[2]) / (high[2] - low[2]) and math.abs(close[2] - open[2]) / (high[2] - low[2]) >=  0.1 and close[1] < open[1] and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close < open and math.abs(close - open) / (high - low) >=  0.7 and close[2] < close[1] and close[1] < close[3] and open[2] > close[3] and open[1] > close[3] and close < ((open[3] + close[3]) / 2) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "TT", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Tower Top", size = size.tiny)
+	alert("Candle TT - ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and 0.7 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.3 and close > open and 0.7 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.3 and close <=  close[1] and close > low[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "BIN", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish In Neck", size = size.tiny)
+	alert("Candle BIN + ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and 0.7 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.3 and close < open and 0.7 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.3 and close >=  close[1] and close < high[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "BIN", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish In Neck", size = size.tiny)
+	alert("Candle BIN - ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and 0.7 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.3 and close < open and 0.7 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.3 and open <=  open[1] and open > low[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "BSL", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Separating Lines", size = size.tiny)
+	alert("Candle BSL + ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and 0.7 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.3 and close > open and 0.7 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.3 and open >=  open[1] and open < high[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "BSL", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Separating Lines", size = size.tiny)
+	alert("Candle BSL - ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and high < open[1] and low > close[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "BH", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Harami", size = size.tiny)
+	alert("Candle BH + ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.7 and 0.3 > math.abs(close - open) / (high - low) and math.abs(close - open) / (high - low) >=  0.1 and high < close[1] and low > open[1] and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "BH", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Harami", size = size.tiny)
+	alert("Candle BH - ", alert.freq_once_per_bar_close)
+
+if(close[1] < open[1] and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close > open and math.abs(close - open) / (high - low) >=  0.7 and high[1] < close and low[1] > open and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "BE", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Bullish Engulfing", size = size.tiny)
+	alert("Candle BE + ", alert.freq_once_per_bar_close)
+
+if(close[1] > open[1] and 0.3 > math.abs(close[1] - open[1]) / (high[1] - low[1]) and math.abs(close[1] - open[1]) / (high[1] - low[1]) >=  0.1 and close < open and math.abs(close - open) / (high - low) >=  0.7 and high[1] < open and low[1] > close and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "BE", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Bearish Engulfing", size = size.tiny)
+	alert("Candle BE - ", alert.freq_once_per_bar_close)
+
+if(math.abs(close[1] - open[1]) / (high[1] - low[1]) < 0.1 and close > open and math.abs(close - open) / (high - low) >=  0.7 and high[1] < close and low[1] > open and (high[1] - math.max(close[1],open[1])) > (3 * math.abs(close[1] - open[1])) and (math.min(close[1],open[1]) - low[1]) <=  math.abs(close[1] - open[1]) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosLow, text = "DBE", style = label.style_label_up, color = ColorBullish, textcolor = color.white, tooltip = "Doji Bullish Engulfing", size = size.tiny)
+	alert("Candle DBE + ", alert.freq_once_per_bar_close)
+
+if(math.abs(close[1] - open[1]) / (high[1] - low[1]) < 0.1 and close < open and math.abs(close - open) / (high - low) >=  0.7 and high[1] < open and low[1] > close and (high[1] - math.max(close[1],open[1])) > (3 * math.abs(close[1] - open[1])) and (math.min(close[1],open[1]) - low[1]) <=  math.abs(close[1] - open[1]) and ClassicCandleDetectionOption)
+	label.new(bar_index, patternLabelPosHigh, text = "DBE", style = label.style_label_down, color = ColorBearish, textcolor = color.white, tooltip = "Doji Bearish Engulfing", size = size.tiny)
+	alert("Candle DBE - ", alert.freq_once_per_bar_close)
+
+//Zig Zag
+ZagZagDepth			= input.int(defval = 12, minval = 1, step = 1, title = "Z Depth", group = "Data Values")
+zigZagDeviation		= input.int(defval = 5, minval = 1, step = 1, title = "Z Deviation", group = "Data Values")
+zigZagBackStep		= input.int(defval = 2, minval = 2, step = 1, title = "Z Backstep", group = "Data Values")
+
+zigUpColor			= color.rgb(15, 255, 130, 10)
+zigDnColor			= color.rgb(255, 65, 15, 10)
+
+var LastHigh		= 1
+LastHigh			+= 1
+var LastLow			= 1
+LastLow				+= 1
+var ZigZagLow		= 1
+var ZigZagHigh		= 1
+ZigZagLow			+= 1
+ZigZagHigh			+= 1
+
+ZigZagLowestBar		= -ta.lowestbars(ZagZagDepth)
+ZigZagHighestBar	= -ta.highestbars(ZagZagDepth)
+ZigZagLowing		= ZigZagLow == ZigZagLowestBar or low - low[ZigZagLowestBar] > zigZagDeviation * syminfo.mintick
+ZigZagHighing		= ZigZagHigh == ZigZagHighestBar or high[ZigZagHighestBar] - high > zigZagDeviation * syminfo.mintick
+ZigZagLowestHigh	= ta.barssince(not ZigZagHighing[1])
+ZigZagLowestLow		= ta.barssince(not ZigZagLowing[1])
+ZigZagDown			= ta.barssince(not(ZigZagLowestHigh > ZigZagLowestLow)) >= zigZagBackStep
+LowerZigZag			= low[ZigZagLow] > low[ZigZagLowestBar]
+HigherZigZag		= high[ZigZagHigh] < high[ZigZagHighestBar]
+
+if ZigZagLow != ZigZagLowestBar and (not ZigZagDown[1] or LowerZigZag)
+    ZigZagLow := ZigZagLowestBar < ZigZagHigh ? ZigZagLowestBar : 0
+    ZigZagLow
+if ZigZagHigh != ZigZagHighestBar and (ZigZagDown[1] or HigherZigZag)
+    ZigZagHigh := ZigZagHighestBar < ZigZagLow ? ZigZagHighestBar : 0
+    ZigZagHigh
+
+line ZigZagLine		= na
+label ZigZagLabel	= na
+x1 = ZigZagDown ? ZigZagLow : ZigZagHigh
+y1 = ZigZagDown ? low[ZigZagLow] : high[ZigZagHigh]
+
+if ZigZagDown == ZigZagDown[1]
+    if ZigZagLineOption or ZigZagHighLowOption
+        label.delete(ZigZagLabel[1])
+        line.delete(ZigZagLine[1])
+    ZigZagDown
+if ZigZagDown != ZigZagDown[1]
+    if ZigZagDown
+        LastHigh := ZigZagHigh
+        LastHigh
+    else
+        LastLow := ZigZagLow
+        LastLow
+    if not ZigZagLineOption or not ZigZagHighLowOption
+        nx = ZigZagDown ? LastHigh : LastLow
+    ZigZagDown
+if ZigZagLineOption
+    ZigZagLine := line.new(bar_index - (ZigZagDown ? LastHigh : LastLow), ZigZagDown ? high[LastHigh] : low[LastLow], bar_index - x1, y1, width = 2, color = ZigZagDown ? zigDnColor : zigUpColor)
+if ZigZagHighLowOption
+    ZigZagLabel := label.new(bar_index - x1, y1, ZigZagDown ? low[x1] < low[LastLow] ? 'LL' : 'HL' : high[x1] > high[LastHigh] ? 'HH' : 'LH', style = ZigZagDown ? label.style_label_up : label.style_label_down, size = size.tiny, color = ZigZagDown ? zigUpColor : zigDnColor, textcolor = ZigZagDown ? color.black : color.white, tooltip = ZigZagDown ? low[x1] < low[LastLow] ? 'Lower Low' : 'Higher Low' : high[x1] > high[LastHigh] ? 'Higher High' : 'Lower High')
+
+bgcolor(ZigZagAreaOption ? ZigZagDown ? color.rgb(15, 255, 130, 90) : color.rgb(255, 65, 15, 90) : na, title = "Direction Area")
+
+//CME Market & Timezone Mark
+CMEWhenClose	= false
+CMEWhenOpen		= false
+TimezoneMark	= false
+
+if timeframe.period == "60"
+	if CMEMarketOption
+		CMEWhenClose := not na(time(timeframe.period, "1300-1400:6", "UTC-0"))
+		CMEWhenOpen := not na(time(timeframe.period, "1300-1400:1", "UTC-0"))
+	if TimzezoneMarkOption
+		TimezoneMark := not na(time(timeframe.period, "0000-0100:123457", "UTC-0"))
+else if timeframe.period == "120"
+	if CMEMarketOption
+		CMEWhenClose := not na(time(timeframe.period, "1200-1400:6", "UTC-0"))
+		CMEWhenOpen := not na(time(timeframe.period, "1200-1400:1", "UTC-0"))
+	if TimzezoneMarkOption
+		TimezoneMark := not na(time(timeframe.period, "0000-0200:123457", "UTC-0"))
+else if timeframe.period == "180"
+	if CMEMarketOption
+		CMEWhenClose := not na(time(timeframe.period, "1200-1500:6", "UTC-0"))
+		CMEWhenOpen := not na(time(timeframe.period, "1200-1500:1", "UTC-0"))
+	if TimzezoneMarkOption
+		TimezoneMark := not na(time(timeframe.period, "0000-0300:123457", "UTC-0"))
+else if timeframe.period == "240"
+	if CMEMarketOption
+		CMEWhenClose := not na(time(timeframe.period, "1200-1600:6", "UTC-0"))
+		CMEWhenOpen := not na(time(timeframe.period, "1200-1600:1", "UTC-0"))
+	if TimzezoneMarkOption
+		TimezoneMark := not na(time(timeframe.period, "0000-0400:123457", "UTC-0"))
+
+plotshape(CMEMarketOption and CMEWhenClose ? bar_index : na, location = location.abovebar, style = shape.xcross, color = color.rgb(255, 255, 255, 0), size = size.tiny, text = "CME", title = "CME Market Close", textcolor = color.rgb(255, 255, 255, 0), offset = 0)
+plotshape(CMEMarketOption and CMEWhenOpen ? bar_index : na, location = location.abovebar, style = shape.cross, color = color.rgb(255, 255, 255, 0), size = size.tiny, text = "CME", title = "CME Market Open", textcolor = color.rgb(255, 255, 255, 0), offset = 0)
+plotshape(TimzezoneMarkOption and TimezoneMark ? bar_index : na, location = location.abovebar, style = shape.cross, color = color.rgb(255, 255, 255, 0), size = size.tiny, text = "TZZ", title = "Timezone Mark", textcolor = color.rgb(255, 255, 255, 0), offset = 0)
+
+//Tables
+var dataTable		= table(na)
+var dominanceTable	= table(na)
+
+atrValue			= math.round((ta.atr(14) / close) * 100)
+
+if(atrValue == 0)
+    atrValue		:= 1
+
+if(barstate.islast)
+	dataTable		:= table.new(position.bottom_right, columns = 23, rows = 23, bgcolor = color.rgb(255, 255, 255, 80), frame_width = 0, frame_color = color.rgb(255, 255, 255, 100))
+	dominanceTable	:= table.new(position.bottom_left, columns = 3, rows = 15, bgcolor = color.rgb(255, 255, 255, 80), frame_width = 0, frame_color = color.rgb(255, 255, 255, 100))
+
+if(barstate.islast and not Table1Option and Table3Option)
+	table.cell(dataTable, 0, 1, "ATR", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+    table.cell(dataTable, 1, 1, str.tostring(atrValue) + "%", height = 5, width = 10, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+else if(barstate.islast and Table1Option and not Table2Option and Table3Option)
+	table.cell(dataTable, 0, 3, "ATR", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+    table.cell(dataTable, 1, 3, str.tostring(atrValue) + "%", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 3, "", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+else if(barstate.islast and Table1Option and Table2Option and Table3Option)
+	table.cell(dataTable, 0, 21, "ATR", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+    table.cell(dataTable, 1, 21, str.tostring(atrValue) + "%", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 21, "", height = 5, width = 5, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+BullColor		= color.rgb(15, 255, 130, 0)
+BearColor		= color.rgb(255, 65, 15, 0)
+NeutralColor	= color.rgb(255, 255, 255, 0)
+
+//Simple Moving Average
+ma10Value		= ta.sma(close, 10)
+ma10Position	= 0
+ma10PositionCr	= 0
+ma10Color		= NeutralColor
+ma10ColorCr		= NeutralColor
+ma20Value		= ta.sma(close, 20)
+ma20Position	= 0
+ma20PositionCr	= 0
+ma20Color		= NeutralColor
+ma20ColorCr		= NeutralColor
+ma30Value		= ta.sma(close, 30)
+ma30Position	= 0
+ma30PositionCr	= 0
+ma30Color		= NeutralColor
+ma30ColorCr		= NeutralColor
+ma50Value		= ta.sma(close, 50)
+ma50Position	= 0
+ma50PositionCr	= 0
+ma50Color		= NeutralColor
+ma50ColorCr		= NeutralColor
+ma100Value		= ta.sma(close, 100)
+ma100Position	= 0
+ma100PositionCr	= 0
+ma100Color		= NeutralColor
+ma100ColorCr	= NeutralColor
+ma200Value		= ta.sma(close, 200)
+ma200Position	= 0
+ma200PositionCr	= 0
+ma200Color		= NeutralColor
+ma200ColorCr	= NeutralColor
+
+if(close > ma10Value)
+	ma10Position := 1
+	ma10Color := BullColor
+else if(close < ma10Value)
+	ma10Position := -1
+	ma10Color := BearColor
+else
+	ma10Position := 0
+	ma10Color := NeutralColor
+
+if(close > ma20Value)
+	ma20Position := 4
+	ma20Color := BullColor
+else if(close < ma20Value)
+	ma20Position := -4
+	ma20Color := BearColor
+else
+	ma20Position := 0
+	ma20Color := NeutralColor
+
+if(close > ma30Value)
+	ma30Position := 2
+	ma30Color := BullColor
+else if(close < ma30Value)
+	ma30Position := -2
+	ma30Color := BearColor
+else
+	ma30Position := 0
+	ma30Color := NeutralColor
+
+if(close > ma50Value)
+	ma50Position := 1
+	ma50Color := BullColor
+else if(close < ma50Value)
+	ma50Position := -1
+	ma50Color := BearColor
+else
+	ma50Position := 0
+	ma50Color := NeutralColor
+
+if(close > ma100Value)
+	ma100Position := 1
+	ma100Color := BullColor
+else if(close < ma100Value)
+	ma100Position := -1
+	ma100Color := BearColor
+else
+	ma100Position := 0
+	ma100Color := NeutralColor
+
+if(close > ma200Value)
+	ma200Position := 2
+	ma200Color := BullColor
+else if(close < ma200Value)
+	ma200Position := -2
+	ma200Color := BearColor
+else
+	ma200Position := 0
+	ma200Color := NeutralColor
+
+if(ma10Value > ma20Value)
+	ma10PositionCr := 1
+	ma10ColorCr := BullColor
+else if(ma10Value < ma20Value)
+	ma10PositionCr := -1
+	ma10ColorCr := BearColor
+else
+	ma10PositionCr := 0
+	ma10ColorCr := NeutralColor
+
+if(ma20Value > ma30Value)
+	ma20PositionCr := 4
+	ma20ColorCr := BullColor
+else if(ma20Value < ma30Value)
+	ma20PositionCr := -4
+	ma20ColorCr := BearColor
+else
+	ma20PositionCr := 0
+	ma20ColorCr := NeutralColor
+
+if(ma30Value > ma50Value)
+	ma30PositionCr := 2
+	ma30ColorCr := BullColor
+else if(ma30Value < ma50Value)
+	ma30PositionCr := -2
+	ma30ColorCr := BearColor
+else
+	ma30PositionCr := 0
+	ma30ColorCr := NeutralColor
+
+if(ma50Value > ma100Value)
+	ma50PositionCr := 1
+	ma50ColorCr := BullColor
+else if(ma50Value < ma100Value)
+	ma50PositionCr := -1
+	ma50ColorCr := BearColor
+else
+	ma50PositionCr := 0
+	ma50ColorCr := NeutralColor
+
+if(ma100Value > ma200Value)
+	ma100PositionCr := 1
+	ma100ColorCr := BullColor
+else if(ma100Value < ma200Value)
+	ma100PositionCr := -1
+	ma100ColorCr := BearColor
+else
+	ma100PositionCr := 0
+	ma100ColorCr := NeutralColor
+
+if(ma200Value < ma100Value)
+	ma200PositionCr := 2
+	ma200ColorCr := BullColor
+else if(ma200Value > ma100Value)
+	ma200PositionCr := -2
+	ma200ColorCr := BearColor
+else
+	ma200PositionCr := 0
+	ma200ColorCr := NeutralColor
+
+//Exponential Moving Average
+ema10Value			= ta.ema(close, 10)
+ema10Position		= 0
+ema10PositionCr		= 0
+ema10Color			= NeutralColor
+ema10ColorCr		= NeutralColor
+ema20Value			= ta.ema(close, 20)
+ema20Position		= 0
+ema20PositionCr		= 0
+ema20Color			= NeutralColor
+ema20ColorCr		= NeutralColor
+ema30Value			= ta.ema(close, 30)
+ema30Position		= 0
+ema30PositionCr		= 0
+ema30Color			= NeutralColor
+ema30ColorCr		= NeutralColor
+ema50Value			= ta.ema(close, 50)
+ema50Position		= 0
+ema50PositionCr		= 0
+ema50Color			= NeutralColor
+ema50ColorCr		= NeutralColor
+ema100Value			= ta.ema(close, 100)
+ema100Position		= 0
+ema100PositionCr	= 0
+ema100Color			= NeutralColor
+ema100ColorCr		= NeutralColor
+ema200Value			= ta.ema(close, 200)
+ema200Position		= 0
+ema200PositionCr	= 0
+ema200Color			= NeutralColor
+ema200ColorCr		= NeutralColor
+
+if(close > ema10Value)
+	ema10Position := 3
+	ema10Color := BullColor
+else if(close < ema10Value)
+	ema10Position := -3
+	ema10Color := BearColor
+else
+	ema10Position := 0
+	ema10Color := NeutralColor
+
+if(close > ema20Value)
+	ema20Position := 1
+	ema20Color := BullColor
+else if(close < ema20Value)
+	ema20Position := -1
+	ema20Color := BearColor
+else
+	ema20Position := 0
+	ema20Color := NeutralColor
+
+if(close > ema30Value)
+	ema30Position := 3
+	ema30Color := BullColor
+else if(close < ema30Value)
+	ema30Position := -3
+	ema30Color := BearColor
+else
+	ema30Position := 0
+	ema30Color := NeutralColor
+
+if(close > ema50Value)
+	ema50Position := 2
+	ema50Color := BullColor
+else if(close < ema50Value)
+	ema50Position := -2
+	ema50Color := BearColor
+else
+	ema50Position := 0
+	ema50Color := NeutralColor
+
+if(close > ema100Value)
+	ema100Position := 3
+	ema100Color := BullColor
+else if(close < ema100Value)
+	ema100Position := -3
+	ema100Color := BearColor
+else
+	ema100Position := 0
+	ema100Color := NeutralColor
+
+if(close > ema200Value)
+	ema200Position := 1
+	ema200Color := BullColor
+else if(close < ema200Value)
+	ema200Position := -1
+	ema200Color := BearColor
+else
+	ema200Position := 0
+	ema200Color := NeutralColor
+
+if(ema10Value > ema20Value)
+	ema10PositionCr := 3
+	ema10ColorCr := BullColor
+else if(ema10Value < ema20Value)
+	ema10PositionCr := -3
+	ema10ColorCr := BearColor
+else
+	ema10PositionCr := 0
+	ema10ColorCr := NeutralColor
+
+if(ema20Value > ema30Value)
+	ema20PositionCr := 1
+	ema20ColorCr := BullColor
+else if(ema20Value < ema30Value)
+	ema20PositionCr := -1
+	ema20ColorCr := BearColor
+else
+	ema20PositionCr := 0
+	ema20ColorCr := NeutralColor
+
+if(ema30Value > ema50Value)
+	ema30PositionCr := 3
+	ema30ColorCr := BullColor
+else if(ema30Value < ema50Value)
+	ema30PositionCr := -3
+	ema30ColorCr := BearColor
+else
+	ema30PositionCr := 0
+	ema30ColorCr := NeutralColor
+
+if(ema50Value > ema100Value)
+	ema50PositionCr := 2
+	ema50ColorCr := BullColor
+else if(ema50Value < ema100Value)
+	ema50PositionCr := -2
+	ema50ColorCr := BearColor
+else
+	ema50PositionCr := 0
+	ema50ColorCr := NeutralColor
+
+if(ema100Value > ema200Value)
+	ema100PositionCr := 3
+	ema100ColorCr := BullColor
+else if(ema100Value < ema200Value)
+	ema100PositionCr := -3
+	ema100ColorCr := BearColor
+else
+	ema100PositionCr := 0
+	ema100ColorCr := NeutralColor
+
+if(ema200Value < ema100Value)
+	ema200PositionCr := 1
+	ema200ColorCr := BullColor
+else if(ema200Value > ema100Value)
+	ema200PositionCr := -1
+	ema200ColorCr := BearColor
+else
+	ema200PositionCr := 0
+	ema200ColorCr := NeutralColor
+
+//Hull Moving Average
+HMA(s, l)	=> ta.wma((2 * ta.wma(s, l / 2)) - ta.wma(s, l), math.round(math.sqrt(l)))
+HMA3(s)		=> p = s / 2, ta.wma(ta.wma(close, p / 3) * 3 - ta.wma(close, p / 2) - ta.wma(close, p), p)
+SM(s, l)	=>
+    r	= 0.0
+    sv	= s - nz(r[1], s)
+    sm	= nz(r[1], s) + sv * math.sqrt(l * 2)
+    ve	= 0.0
+    ve	:= nz(ve[1], 0) + (l * sv)
+    r	:= sm + ve
+
+hma6ValueA		= SM(HMA(hl2, 6), 0.7)
+hma6ValueB		= SM(HMA3(6), 0.7)
+hma6Position	= 0
+hma6Color		= NeutralColor
+hma12ValueA		= SM(HMA(hl2, 12), 0.7)
+hma12ValueB		= SM(HMA3(12), 0.7)
+hma12Position	= 0
+hma12Color		= NeutralColor
+hma18ValueA		= SM(HMA(hl2, 18), 0.7)
+hma18ValueB		= SM(HMA3(18), 0.7)
+hma18Position	= 0
+hma18Color		= NeutralColor
+hma22ValueA		= SM(HMA(hl2, 22), 0.7)
+hma22ValueB		= SM(HMA3(22), 0.7)
+hma22Position	= 0
+hma22Color		= NeutralColor
+
+if(hma6ValueA < hma6ValueB)
+	hma6Position := 6
+	hma6Color := BullColor
+else if(hma6ValueA > hma6ValueB)
+	hma6Position := -6
+	hma6Color := BearColor
+else
+	hma6Position := 0
+	hma6Color := NeutralColor
+
+if(hma12ValueA < hma12ValueB)
+	hma12Position := 10
+	hma12Color := BullColor
+else if(hma12ValueA > hma12ValueB)
+	hma12Position := -10
+	hma12Color := BearColor
+else
+	hma12Position := 0
+	hma12Color := NeutralColor
+
+if(hma18ValueA < hma18ValueB)
+	hma18Position := 6
+	hma18Color := BullColor
+else if(hma18ValueA > hma18ValueB)
+	hma18Position := -6
+	hma18Color := BearColor
+else
+	hma18Position := 0
+	hma18Color := NeutralColor
+
+if(hma22ValueA < hma22ValueB)
+	hma22Position := 5
+	hma22Color := BullColor
+else if(hma22ValueA > hma22ValueB)
+	hma22Position := -5
+	hma22Color := BearColor
+else
+	hma22Position := 0
+	hma22Color := NeutralColor
+
+//Ichimoku BaseLine
+donChianX(_lenght)	=> math.avg(ta.lowest(_lenght), ta.highest(_lenght))
+conversionLineValue	= donChianX(9)
+baseLineValue		= donChianX(26)
+
+BaseLinePosition	= 0
+BaseLineColor		= NeutralColor
+
+if(conversionLineValue > baseLineValue)
+	BaseLinePosition := 1
+	BaseLineColor := BullColor
+else if(conversionLineValue < baseLineValue)
+	BaseLinePosition := -1
+	BaseLineColor := BearColor
+else
+	BaseLinePosition := 0
+	BaseLineColor := NeutralColor
+
+//Volume Weighted Moving Average
+volumewValue	= ta.vwma(close, 20)
+volumewPosition	= 0
+volumewColor	= NeutralColor
+
+if(close[1] > volumewValue)
+	volumewPosition := 1
+	volumewColor := BullColor
+else if(close[1] < volumewValue)
+	volumewPosition := -1
+	volumewColor := BearColor
+else
+	volumewPosition := 0
+	volumewColor := NeutralColor
+
+//Relative Strength Index
+rsiValue	= ta.rsi(close, 14)
+rsiPosition	= 0
+rsiColor	= NeutralColor
+
+if(rsiValue >= 77) //77
+	rsiPosition := 4
+	rsiColor := BullColor
+else if(rsiValue <= 30) //30
+	rsiPosition := -4
+	rsiColor := BearColor
+else
+	rsiPosition := 0
+	rsiColor := NeutralColor
+
+//Stochastic
+stochValue1		= ta.sma(ta.stoch(close, high, low, 14), 1)
+stochValue2		= ta.sma(stochValue1, 3)
+stochPosition1	= 0
+stochPosition2	= 0
+stochColor1		= NeutralColor
+stochColor2		= NeutralColor
+
+if(stochValue1 >= 80) //80
+	stochPosition1 := 4
+	stochColor1 := BullColor
+else if(stochValue1 <= 20) //20
+	stochPosition1 := -4
+	stochColor1 := BearColor
+else
+	stochPosition1 := 0
+	stochColor1 := NeutralColor
+
+//Stochastic CrossOver
+if(stochValue1 > stochValue2)
+	stochPosition2 := 1
+	stochColor2 := BullColor
+else if(stochValue1 < stochValue2)
+	stochPosition2 := -1
+	stochColor2 := BearColor
+else
+	stochPosition2 := 0
+	stochColor2 := NeutralColor
+
+//Slow Stochastic
+slwstochValue1		= ta.sma(ta.stoch(close, high, low, 13), 5)
+slwstochValue2		= ta.sma(slwstochValue1, 3)
+slwstochPosition1	= 0
+slwstochPosition2	= 0
+slwstochColor1		= NeutralColor
+slwstochColor2		= NeutralColor
+
+if(slwstochValue1 >= 80) //80
+	slwstochPosition1 := 5
+	slwstochColor1 := BullColor
+else if(slwstochValue1 <= 20) //20
+	slwstochPosition1 := -5
+	slwstochColor1 := BearColor
+else
+	slwstochPosition1 := 0
+	slwstochColor1 := NeutralColor
+
+//Slow Stochastic CrossOver
+if(slwstochValue1 > slwstochValue2)
+	slwstochPosition2 := 2
+	slwstochColor2 := BullColor
+else if(slwstochValue1 < slwstochValue2)
+	slwstochPosition2 := -2
+	slwstochColor2 := BearColor
+else
+	slwstochPosition2 := 0
+	slwstochColor2 := NeutralColor
+
+//Stochastic Relative Strength Index
+strsiValue			= ta.rsi(close, 14)
+stochrsiValue1		= ta.stoch(strsiValue, strsiValue, strsiValue, 14)
+stochrsiValue2		= ta.sma(stochrsiValue1, 3)
+stochrsiPosition1	= 0
+stochrsiPosition2	= 0
+stochrsiColor1		= NeutralColor
+stochrsiColor2		= NeutralColor
+
+if(stochrsiValue2 >= 70) //70
+	stochrsiPosition1 := 5
+	stochrsiColor1 := BullColor
+else if(stochrsiValue2 <= 27) //27
+	stochrsiPosition1 := -5
+	stochrsiColor1 := BearColor
+else
+	stochrsiPosition1 := 0
+	stochrsiColor1 := NeutralColor
+
+//Stochastic Relative Strength Index CrossOver
+if(stochrsiValue1 > stochrsiValue2)
+	stochrsiPosition2 := 2
+	stochrsiColor2 := BullColor
+else if(stochrsiValue1 < stochrsiValue2)
+	stochrsiPosition2 := -2
+	stochrsiColor2 := BearColor
+else
+	stochrsiPosition2 := 0
+	stochrsiColor2 := NeutralColor
+
+//Moving Average Convergence Divergence
+MACDValue		= ta.ema(hl2, 16) - ta.ema(high, 36)
+MACDSignalValue	= ta.ema(MACDValue, 7)
+MACDHisto		= MACDValue - MACDSignalValue
+
+MACDPosition	= 0
+MACDColor		= NeutralColor
+
+if(MACDValue < 0)
+	MACDPosition := 1
+	MACDColor := BullColor
+else if(MACDValue > 0)
+	MACDPosition := -1
+	MACDColor := BearColor
+else
+	MACDPosition := 0
+	MACDColor := NeutralColor
+
+//Moving Average Convergence Divergence CrossOver
+MACDCrossPosition	= 0
+MACDCrossColor		= NeutralColor
+
+if(MACDValue > MACDSignalValue)
+	MACDCrossPosition := 5
+	MACDCrossColor := BullColor
+else if(MACDValue < MACDSignalValue)
+	MACDCrossPosition := -5
+	MACDCrossColor := BearColor
+else
+	MACDCrossPosition := 0
+	MACDCrossColor := NeutralColor
+
+//Directional Movement Index
+DMIUp		= ta.change(high)
+DMIDown		= -ta.change(low)
+plusDM		= na(DMIUp) ? na : (DMIUp > DMIDown and DMIUp > 0 ? DMIUp : 0)
+minusDM		= na(DMIDown) ? na : (DMIDown > DMIUp and DMIDown > 0 ? DMIDown : 0)
+DMItrur		= ta.rma(ta.tr, 14)
+DMIplus		= fixnan(100 * ta.rma(plusDM, 8) / DMItrur)
+DMIminus	= fixnan(100 * ta.rma(minusDM, 8) / DMItrur)
+DMIsum		= DMIplus + DMIminus
+DMIadx		= 100 * ta.rma(math.abs(DMIplus - DMIminus) / (DMIsum == 0 ? 1 : DMIsum), 14)
+
+DMIPosition	= 0
+DMIColor	= NeutralColor
+
+if(DMIplus > DMIminus)
+	DMIPosition := 4
+	DMIColor := BullColor
+else if(DMIplus < DMIminus)
+	DMIPosition := -4
+	DMIColor := BearColor
+else
+	DMIPosition := 0
+	DMIColor := NeutralColor
+
+//Commodity Channel Index
+cciValue	= (hlc3 - (ta.sma(hlc3, 20))) / (0.015 * ta.dev(hlc3, 20))
+
+cciPosition	= 0
+cciColor	= NeutralColor
+
+if(cciValue <= -40)
+	cciPosition := 1
+	cciColor := BullColor
+else if(cciValue >= 40)
+	cciPosition := -1
+	cciColor := BearColor
+else if(cciValue <= -80)
+	cciPosition := 3
+	cciColor := BullColor
+else if(cciValue >= 80)
+	cciPosition := -3
+	cciColor := BearColor
+if(cciValue <= -100)
+	cciPosition := 5
+	cciColor := BullColor
+else if(cciValue >= 100)
+	cciPosition := -5
+	cciColor := BearColor
+else
+	cciPosition := 0
+	cciColor := NeutralColor
+
+//Momentum
+momentumCalc(seria, len) =>
+	momData = seria - seria[len]
+	momData
+
+momValue1	= momentumCalc(close, 5)
+momValue2	= momentumCalc(momValue1, 1)
+
+momPosition	= 0
+momColor	= NeutralColor
+
+if(momValue1 > 0)
+	momPosition := 3
+	momColor := BullColor
+else if(momValue1 < 0)
+	momPosition := -3
+	momColor := BearColor
+else
+	momPosition := 0
+	momColor := NeutralColor
+
+//Super Trend
+superTrendxUp1			= hl2-(2*(ta.sma(ta.tr, 18)))
+superTrendxUp2			= nz(superTrendxUp1[1],superTrendxUp1)
+superTrendxUp1			:= close[1] > superTrendxUp2 ? math.max(superTrendxUp1,superTrendxUp2) : superTrendxUp1
+superTrendxDn1			= hl2+(2*(ta.sma(ta.tr, 18)))
+superTrendxDn2			= nz(superTrendxDn1[1], superTrendxDn1)
+superTrendxDn1			:= close[1] < superTrendxDn2 ? math.min(superTrendxDn1, superTrendxDn2) : superTrendxDn1
+superTrendxStatus		= 1
+superTrendxStatus		:= nz(superTrendxStatus[1], superTrendxStatus)
+superTrendxStatus		:= superTrendxStatus == -1 and close > superTrendxDn2 ? 1 : superTrendxStatus == 1 and close < superTrendxUp2 ? -1 : superTrendxStatus
+
+superTrendPosition		= 0
+SuperTrendColor			= NeutralColor
+
+if(superTrendxStatus == 1)
+	superTrendPosition := 2
+	SuperTrendColor := BullColor
+else if(superTrendxStatus == -1)
+	superTrendPosition := -2
+	SuperTrendColor := BearColor
+else
+	superTrendPosition := 0
+	SuperTrendColor := NeutralColor
+
+//Williams Percent Range
+wlpCalc(length) =>
+	max = ta.highest(length)
+	min = ta.lowest(length)
+	100 * (close - max) / (max - min)
+wprValue	= wlpCalc(14)
+
+wprPosition	= 0
+wprColor	= NeutralColor
+
+if(wprValue > -25)//-20
+	wprPosition := 3
+	wprColor := BullColor
+else if(wprValue < -75)//80
+	wprPosition := -3
+	wprColor := BearColor
+else
+	wprPosition := 0
+	wprColor := NeutralColor
+
+//Bull Bear Power
+bbpRule1() =>
+	if(close[1] < open)
+		math.max(open - close[1], high - low)
+	else
+		high-low
+
+bbpRule2() =>
+	if(close[1] > open)
+		math.max(close[1] - open, high - low)
+	else
+		high - low
+
+bbpRule1	= bbpRule1()
+bbpRule2	= bbpRule2()
+
+bbpBull() =>
+	if(close == open)
+		if(high - close == close - low)
+			if(close[1] > open)
+				math.max(high - open, close - low)
+			else
+				bbpRule1
+		if(high - close > close - low)
+			if(close[1] < open)
+				math.max(high - close[1], close - low)
+			else
+				high - open
+		else
+			bbpRule1
+	if(close < open)
+		if(close[1] < open)
+			math.max(high - close[1], close - low)
+		else
+			math.max(high - open, close - low)	
+	else
+		bbpRule1
+
+bbpBear() =>
+	if(close == open)
+		if(high - close == close - low)
+			if(close[1] < open)
+				math.max(open - low, high - close)
+			else
+				bbpRule2
+		if(high - close > close - low)
+			if(close[1] > open)
+				math.max(close[1] - low, high - close)
+			else
+				open - low
+		else
+			bbpRule2
+	if(close < open)
+		bbpRule2
+	else
+		if(close[1] > open)
+			math.max(close[1] - low, high - close)
+		else
+			math.max(open - low, high - close)
+
+bbpPosition	= 0
+bbpColor	= NeutralColor
+
+bbpBull		= bbpBull()
+bbpBear		= bbpBear()
+
+bbpBull		:= ta.sma(bbpBull - bbpBear, 30)
+bbpBear		:= ta.sma(bbpBull - bbpBear, 30)
+
+if(bbpBull > 0.1)//0
+	bbpPosition := 3
+	bbpColor := BullColor
+else if(bbpBear < 0.1)//0
+	bbpPosition := -3
+	bbpColor := BearColor
+else
+	bbpPosition := 0
+	bbpColor := NeutralColor
+
+//Order Block
+blkabsMove		= ((math.abs(close[6] - close[1]))/close[6]) * 100
+blkrelMove		= blkabsMove >= 0.1
+blkbullishOB	= close[6] < open[6]
+blkbearishOB	= close[6] > open[6]
+
+int blkUpCandles = 0
+for i = 1 to 5
+    blkUpCandles := blkUpCandles + (close[i] > open[i]? 1 : 0)
+
+blkOBBull = blkbullishOB and (blkUpCandles == (5)) and blkrelMove
+
+int blkDownCandles = 0
+for i = 1 to 5
+    blkDownCandles := blkDownCandles + (close[i] < open[i]? 1 : 0)
+
+blkOBBear = blkbearishOB and (blkDownCandles == (5)) and blkrelMove
+
+blkPosition	= 0
+blkColor	= NeutralColor
+
+if(blkOBBull)
+	blkPosition := 3
+	blkColor := BullColor
+else if(blkOBBear)
+	blkPosition := -3
+	blkColor := BearColor
+else
+	blkPosition := 0
+	blkColor := NeutralColor
+
+//Relative Vigor Index
+RVI			= math.sum(ta.swma(close - open), 10) / math.sum(ta.swma(high - low),10)
+RVISignal	= ta.swma(RVI)
+
+RVIPosition	= 0
+RVIColor	= NeutralColor
+
+if(RVI > RVISignal)
+	RVIPosition := 3
+	RVIColor := BullColor
+else if(RVI < RVISignal)
+	RVIPosition := -3
+	RVIColor := BearColor
+else
+	RVIPosition := 0
+	RVIColor := NeutralColor
+
+//Chaikin Money Flow
+CMFAD = close == high and close == low or high == low ? 0 : ((2 * close - low - high) / (high - low)) * volume
+CMF = math.sum(CMFAD, 20) / math.sum(volume, 20)
+
+CMFPosition	= 0
+CMFColor	= NeutralColor
+
+if(CMF < 0)
+	CMFPosition := 3
+	CMFColor := BullColor
+else if(CMF > 0)
+	CMFPosition := -3
+	CMFColor := BearColor
+else
+	CMFPosition := 0
+	CMFColor := NeutralColor
+
+//OSC & MA AVG
+maAVG	= ma10Position + ma20Position + ma30Position + ma50Position + ma100Position + ma200Position 
+maAVG	:= maAVG + ema10Position + ema20Position + ema30Position + ema50Position + ema100Position + ema200Position
+maAVG	:= maAVG + hma6Position + hma12Position + hma18Position + hma22Position
+maAVG	:= maAVG + BaseLinePosition + volumewPosition
+MAXAVG	= (int(53) / 7)
+
+maAVG2	= ma10PositionCr + ma20PositionCr + ma30PositionCr + ma50PositionCr + ma100PositionCr + ma200PositionCr 
+maAVG2	:= maAVG2 + ema10PositionCr + ema20PositionCr + ema30PositionCr + ema50PositionCr + ema100PositionCr + ema200PositionCr
+MAXAVG2	= (int(24) / 7)
+
+oscAVG	= MACDPosition + MACDCrossPosition + rsiPosition + stochPosition1 + stochPosition2 + slwstochPosition1 + slwstochPosition2 + stochrsiPosition1 + stochrsiPosition2
+oscAVG	:= oscAVG + DMIPosition + cciPosition + momPosition + superTrendPosition + wprPosition + bbpPosition + blkPosition + CMFPosition + RVIPosition
+MAXOSC	= (int(58) / 7)
+
+bothAVG = (maAVG + maAVG2 + oscAVG) / 3
+MAXBAVG = (int(45) / 7)
+
+maAVGPosition = "N"
+maAVGColor = NeutralColor
+maAVGPosition2 = "N"
+maAVGColor2 = NeutralColor
+oscAVGPosition = "N"
+oscAVGColor = NeutralColor
+bothAVGPosition = "N"
+bothAVGColor = NeutralColor
+
+if(maAVG >= (MAXAVG * 6))
+	maAVGPosition := "BUY (III)"
+	maAVGColor := BullColor
+else if(maAVG >= (MAXAVG * 5))
+	maAVGPosition := "BUY (II)"
+	maAVGColor := BullColor
+else if(maAVG >= (MAXAVG * 4))
+	maAVGPosition := "BUY (I)"
+	maAVGColor := BullColor
+else if(maAVG >= (MAXAVG * 3))
+	maAVGPosition := "BUY"
+	maAVGColor := BullColor
+else if(maAVG >= (MAXAVG * 2))
+	maAVGPosition := "N (II)"
+	maAVGColor := BullColor
+else if(maAVG >= (MAXAVG * 1))
+	maAVGPosition := "N (I)"
+	maAVGColor := BullColor
+else if(maAVG >= 0)
+	maAVGPosition := "N"
+	maAVGColor := NeutralColor
+else if(maAVG <= (MAXAVG * -6))
+	maAVGPosition := "SELL (III)"
+	maAVGColor := BearColor
+else if(maAVG <= (MAXAVG * -5))
+	maAVGPosition := "SELL (II)"
+	maAVGColor := BearColor
+else if(maAVG <= (MAXAVG * -4))
+	maAVGPosition := "SELL (I)"
+	maAVGColor := BearColor
+else if(maAVG <= (MAXAVG * -3))
+	maAVGPosition := "SELL"
+	maAVGColor := BearColor
+else if(maAVG <= (MAXAVG * -2))
+	maAVGPosition := "N (II)"
+	maAVGColor := BearColor
+else if(maAVG <= (MAXAVG * -1))
+	maAVGPosition := "N (I)"
+	maAVGColor := BearColor
+else if(maAVG <= 0)
+	maAVGPosition := "N"
+	maAVGColor := NeutralColor
+else
+	maAVGPosition := "N"
+	maAVGColor := NeutralColor
+
+if(maAVG2 >= (MAXAVG2 * 6))
+	maAVGPosition2 := "BUY (III)"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= (MAXAVG2 * 5))
+	maAVGPosition2 := "BUY (II)"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= (MAXAVG2 * 4))
+	maAVGPosition2 := "BUY (I)"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= (MAXAVG2 * 3))
+	maAVGPosition2 := "BUY"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= (MAXAVG2 * 2))
+	maAVGPosition2 := "N (II)"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= (MAXAVG2 * 1))
+	maAVGPosition2 := "N (I)"
+	maAVGColor2 := BullColor
+else if(maAVG2 >= 0)
+	maAVGPosition2 := "N"
+	maAVGColor2 := NeutralColor
+else if(maAVG2 <= (MAXAVG2 * -6))
+	maAVGPosition2 := "SELL (III)"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= (MAXAVG2 * -5))
+	maAVGPosition2 := "SELL (II)"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= (MAXAVG2 * -4))
+	maAVGPosition2 := "SELL (I)"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= (MAXAVG2 * -3))
+	maAVGPosition2 := "SELL"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= (MAXAVG2 * -2))
+	maAVGPosition2 := "N (II)"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= (MAXAVG2 * -1))
+	maAVGPosition2 := "N (I)"
+	maAVGColor2 := BearColor
+else if(maAVG2 <= 0)
+	maAVGPosition2 := "N"
+	maAVGColor2 := NeutralColor
+else
+	maAVGPosition2 := "N"
+	maAVGColor2 := NeutralColor
+
+if(oscAVG >= (MAXOSC * 6))
+	oscAVGPosition := "BUY (III)"
+	oscAVGColor := BullColor
+else if(oscAVG >= (MAXOSC * 5))
+	oscAVGPosition := "BUY (II)"
+	oscAVGColor := BullColor
+else if(oscAVG >= (MAXOSC * 4))
+	oscAVGPosition := "BUY (I)"
+	oscAVGColor := BullColor
+else if(oscAVG >= (MAXOSC * 3))
+	oscAVGPosition := "BUY"
+	oscAVGColor := BullColor
+else if(oscAVG >= (MAXOSC * 2))
+	oscAVGPosition := "N (II)"
+	oscAVGColor := BullColor
+else if(oscAVG >= (MAXOSC * 1))
+	oscAVGPosition := "N (I)"
+	oscAVGColor := BullColor
+else if(oscAVG >= 0)
+	oscAVGPosition := "N"
+	oscAVGColor := NeutralColor
+else if(oscAVG <= (MAXOSC * -6))
+	oscAVGPosition := "SELL (III)"
+	oscAVGColor := BearColor
+else if(oscAVG <= (MAXOSC * -5))
+	oscAVGPosition := "SELL (II)"
+	oscAVGColor := BearColor
+else if(oscAVG <= (MAXOSC * -4))
+	oscAVGPosition := "SELL (I)"
+	oscAVGColor := BearColor
+else if(oscAVG <= (MAXOSC * -3))
+	oscAVGPosition := "SELL"
+	oscAVGColor := BearColor
+else if(oscAVG <= (MAXOSC * -2))
+	oscAVGPosition := "N (II)"
+	oscAVGColor := BearColor
+else if(oscAVG <= (MAXOSC * -1))
+	oscAVGPosition := "N (I)"
+	oscAVGColor := BearColor
+else if(oscAVG <= 0)
+	oscAVGPosition := "N"
+	oscAVGColor := NeutralColor
+else
+	oscAVGPosition := "N"
+	oscAVGColor := NeutralColor
+
+if(bothAVG >= (MAXBAVG * 6))
+	bothAVGPosition := "BUY (III)"
+	bothAVGColor := BullColor
+else if(bothAVG >= (MAXBAVG * 5))
+	bothAVGPosition := "BUY (II)"
+	bothAVGColor := BullColor
+else if(bothAVG >= (MAXBAVG * 4))
+	bothAVGPosition := "BUY (I)"
+	bothAVGColor := BullColor
+else if(bothAVG >= (MAXBAVG * 3))
+	bothAVGPosition := "BUY"
+	bothAVGColor := BullColor
+else if(bothAVG >= (MAXBAVG * 2))
+	bothAVGPosition := "N (II)"
+	bothAVGColor := BullColor
+else if(bothAVG >= (MAXBAVG * 1))
+	bothAVGPosition := "N (I)"
+	bothAVGColor := BullColor
+else if(bothAVG >= 0)
+	bothAVGPosition := "N"
+	bothAVGColor := NeutralColor
+else if(bothAVG <= (MAXBAVG * -6))
+	bothAVGPosition := "SELL (III)"
+	bothAVGColor := BearColor
+else if(bothAVG <= (MAXBAVG * -5))
+	bothAVGPosition := "SELL (II)"
+	bothAVGColor := BearColor
+else if(bothAVG <= (MAXBAVG * -4))
+	bothAVGPosition := "SELL (I)"
+	bothAVGColor := BearColor
+else if(bothAVG <= (MAXBAVG * -3))
+	bothAVGPosition := "SELL"
+	bothAVGColor := BearColor
+else if(bothAVG <= (MAXBAVG * -2))
+	bothAVGPosition := "N (II)"
+	bothAVGColor := BearColor
+else if(bothAVG <= (MAXBAVG * -1))
+	bothAVGPosition := "N (I)"
+	bothAVGColor := BearColor
+else if(bothAVG <= 0)
+	bothAVGPosition := "N"
+	bothAVGColor := NeutralColor
+else
+	bothAVGPosition := "N"
+	bothAVGColor := NeutralColor
+
+//Stablecoin Dominance
+USDTDominance	= request.security('CRYPTOCAP:USDT.D', "D", close)
+USDCDominance	= request.security('CRYPTOCAP:USDC.D', "D", close)
+DAIDominance	= request.security('CRYPTOCAP:DAI.D', "D", close)
+
+DXYDominance	= request.security('CAPITALCOM:DXY', "D", close)
+BTCDominance	= request.security('CRYPTOCAP:BTC.D', "D", close)
+ETHDominance	= request.security('CRYPTOCAP:ETH.D', "D", close)
+OTHDominance	= request.security('CRYPTOCAP:OTHERS.D', "D", close)
+
+USDTChange		= ta.change(USDTDominance)
+USDCChange		= ta.change(USDCDominance)
+DAIChange		= ta.change(DAIDominance)
+
+DXYChange		= ta.change(DXYDominance)
+BTCChange		= ta.change(BTCDominance)
+ETHChange		= ta.change(ETHDominance)
+OTHChange		= ta.change(OTHDominance)
+
+StableDominance	= USDTDominance + USDCDominance + DAIDominance
+StableChange	= ta.change(StableDominance)
+
+if(barstate.islast and Table4Option)
+	table.cell(dominanceTable, 0, 0, "SYMBOL", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+	table.cell(dominanceTable, 1, 0, "VALUE", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+	table.cell(dominanceTable, 2, 0, "CHANG", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+	
+	table.cell(dominanceTable, 0, 1, "USDT", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 1, str.format('{0}%', USDTDominance), height = 5, width = 0, text_color = USDTDominance> 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 1, str.format('{0}%', USDTChange), height = 5, width = 0, text_color = USDTDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 2, "USDC", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 2, str.format('{0}%', USDCDominance), height = 5, width = 0, text_color = USDCDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 2, str.format('{0}%', USDCChange), height = 5, width = 0, text_color = USDCDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 3, "DAI", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 3, str.format('{0}%', DAIDominance), height = 5, width = 0, text_color = DAIDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 3, str.format('{0}%', DAIChange), height = 5, width = 0, text_color = DAIDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 4, "TOTAL", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 4, str.format('{0}%', StableDominance), height = 5, width = 0, text_color = StableDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 4, str.format('{0}%', StableChange), height = 5, width = 0, text_color = StableDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 5, "DXY", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 5, str.format('{0}%', DXYDominance), height = 5, width = 0, text_color = DXYDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 5, str.format('{0}%', DXYChange), height = 5, width = 0, text_color = DXYDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 6, "BTC", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 6, str.format('{0}%', BTCDominance), height = 5, width = 0, text_color = BTCDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 6, str.format('{0}%', BTCChange), height = 5, width = 0, text_color = BTCDominance > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 7, "ETH", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 7, str.format('{0}%', ETHDominance), height = 5, width = 0, text_color = ETHChange > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 7, str.format('{0}%', ETHChange), height = 5, width = 0, text_color = ETHChange > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 0, 8, "OTH", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 1, 8, str.format('{0}%', OTHDominance), height = 5, width = 0, text_color = OTHChange > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dominanceTable, 2, 8, str.format('{0}%', OTHChange), height = 5, width = 0, text_color = OTHChange > 0 ? color.rgb(15, 255, 130, 0) : color.rgb(255, 65, 15, 0), text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+if(barstate.islast and Table1Option)
+	table.cell(dataTable, 0, 0, "OSC", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+	table.cell(dataTable, 1, 0, "MA", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+	table.cell(dataTable, 2, 0, "MA", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 70))
+
+	//OSC & MA AVG
+	table.cell(dataTable, 0, Table2Option ? 19 : 1, oscAVGPosition, height = 5, width = 0, text_color = oscAVGColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+	table.cell(dataTable, 1, Table2Option ? 19 : 1, maAVGPosition, height = 5, width = 0, text_color = maAVGColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+	table.cell(dataTable, 2, Table2Option ? 19 : 1, maAVGPosition2, height = 5, width = 0, text_color = maAVGColor2, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+	table.cell(dataTable, 1, Table2Option ? 20 : 2, bothAVGPosition, height = 5, width = 0, text_color = bothAVGColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+	table.cell(dataTable, 0, Table2Option ? 20 : 2, "AVG", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+	table.cell(dataTable, 2, Table2Option ? 20 : 2, "", height = 5, width = 0, text_color = color.white, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center, bgcolor = color.rgb(255, 255, 255, 75))
+
+if(barstate.islast and Table1Option and Table2Option)
+	//Simple Moving Average
+	//Exponential Moving Average
+	table.cell(dataTable, 1, 1, "MA 10", height = 3, width = 0, text_color = ma10Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 2, "EMA 10", height = 3, width = 0, text_color = ema10Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 3, "MA 20", height = 3, width = 0, text_color = ma20Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 4, "EMA 20", height = 3, width = 0, text_color = ema20Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 5, "MA 30", height = 3, width = 0, text_color = ma30Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 6, "EMA 30", height = 3, width = 0, text_color = ema30Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 7, "MA 50", height = 3, width = 0, text_color = ma50Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 8, "EMA 50", height = 3, width = 0, text_color = ema50Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 9, "MA 100", height = 3, width = 0, text_color = ma100Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 10, "EMA 100", height = 3, width = 0, text_color = ema100Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 11, "MA 200", height = 3, width = 0, text_color = ma200Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 12, "EMA 200", height = 3, width = 0, text_color = ema200Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Moving Average Cross
+	//Exponential Moving Average Cross
+	table.cell(dataTable, 2, 1, "MA-CS 10", height = 3, width = 0, text_color = ma10ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 2, "EMA-CS 10", height = 3, width = 0, text_color = ema10ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 3, "MA-CS 20", height = 3, width = 0, text_color = ma20ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 4, "EMA-CS 20", height = 3, width = 0, text_color = ema20ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 5, "MA-CS 30", height = 3, width = 0, text_color = ma30ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 6, "EMA-CS 30", height = 3, width = 0, text_color = ema30ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 7, "MA-CS 50", height = 3, width = 0, text_color = ma50ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 8, "EMA-CS 50", height = 3, width = 0, text_color = ema50ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 9, "MA-CS 100", height = 3, width = 0, text_color = ma100ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 10, "EMA-CS 100", height = 3, width = 0, text_color = ema100ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 11, "MA-CS 200", height = 3, width = 0, text_color = ma200ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 12, "EMA-CS 200", height = 3, width = 0, text_color = ema200ColorCr, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Hull Moving Average
+	table.cell(dataTable, 1, 13, "HMA 6", height = 3, width = 0, text_color = hma6Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 13, "HMA 12", height = 3, width = 0, text_color = hma12Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 1, 14, "HMA 18", height = 3, width = 0, text_color = hma18Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+	table.cell(dataTable, 2, 14, "HMA 22", height = 3, width = 0, text_color = hma22Color, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Inchimoku BaseLine
+	table.cell(dataTable, 1, 15, "ICH B", height = 3, width = 0, text_color = BaseLineColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Relative Vigor Index
+	table.cell(dataTable, 1, 16, "RVI", height = 3, width = 0, text_color = RVIColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Volume Weighted Moving Average
+	table.cell(dataTable, 2, 15, "VOL W", height = 3, width = 0, text_color = volumewColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Chaikin Money Flow
+	table.cell(dataTable, 2, 16, "CMF", height = 3, width = 0, text_color = CMFColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Relative Strength Index
+	table.cell(dataTable, 0, 1, "RSI", height = 3, width = 0, text_color = rsiColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)	
+
+	//Stochastic	
+	table.cell(dataTable, 0, 2, "STOCH", height = 3, width = 0, text_color = stochColor1, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Stochastic CrossOver
+	table.cell(dataTable, 0, 3, "STOCH-CS", height = 3, width = 0, text_color = stochColor2, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Slow Stochastic	
+	table.cell(dataTable, 0, 4, "STOCH", height = 3, width = 0, text_color = slwstochColor1, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Slow Stochastic CrossOver
+	table.cell(dataTable, 0, 5, "STOCH-CS", height = 3, width = 0, text_color = slwstochColor2, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Stochastic Relative Strength Index
+	table.cell(dataTable, 0, 6, "STO-RSI", height = 3, width = 0, text_color = stochrsiColor1, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Stochastic Relative Strength Index CrossOver
+	table.cell(dataTable, 0, 7, "STO-RSI-CS", height = 3, width = 0, text_color = stochrsiColor2, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Moving Average Convergence Divergence
+	table.cell(dataTable, 0, 8, "MACD", height = 3, width = 0, text_color = MACDColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Moving Average Convergence Divergence CrossOver
+	table.cell(dataTable, 0, 9, "MACD-CS", height = 3, width = 0, text_color = MACDCrossColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Directional Movement Index
+	table.cell(dataTable, 0, 10, "DMI", height = 3, width = 0, text_color = DMIColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Commodity Channel Index
+	table.cell(dataTable, 0, 11, "CCI", height = 3, width = 0, text_color = cciColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)	
+
+	//Momentum
+	table.cell(dataTable, 0, 12, "MOMEN", height = 3, width = 0, text_color = momColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Williams Percent Range
+	table.cell(dataTable, 0, 13, "WPR", height = 3, width = 0, text_color = wprColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Bull Bear Power
+	table.cell(dataTable, 0, 14, "BBP", height = 3, width = 0, text_color = bbpColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
+
+	//Super Trend
+	table.cell(dataTable, 0, 15, "ST", height = 3, width = 0, text_color = SuperTrendColor, text_size = size.tiny, text_valign = text.align_center, text_halign = text.align_center)
